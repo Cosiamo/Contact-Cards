@@ -1,7 +1,7 @@
 import type { NextPage } from "next";
 import Head from "next/head";
 import { Tabs, TabList, Tab, Checkbox, Button, TabPanel, TabPanels, TextInput, Accordion, AccordionItem } from '@carbon/react';
-import { string } from "zod";
+import { Box, List, ThemeIcon } from '@mantine/core'
 
 export interface ListProps {
   name: string;
