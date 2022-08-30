@@ -1,13 +1,18 @@
 package main
 
 import (
+	"fmt"
 	"net/http"
 
+	"github.com/Cosiamo/Contact-Cards/database"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
+	"github.com/jinzhu/gorm"
+	_ "github.com/jinzhu/gorm/dialects/sqlite"
 )
 
 type Contact struct {
+	gorm.Model
 	ID 		int 	`json:"id"`
 	Name 	string 	`json:"name"`
 	Email 	string 	`json:"email"`
@@ -17,10 +22,23 @@ type Contact struct {
 
 const DevClient = "http://localhost:3000"
 
+func initDatabase() {
+	var err error
+	database.DBConn, err = gorm.Open("sqlite3", "contacts.db")
+	if err != nil {
+		panic("failed to connect database")
+	}
+	fmt.Println("Connection Opened to Database")
+	database.DBConn.AutoMigrate(&contact.Contact{})
+	fmt.Println("Database Migrated")
+}
+
 func main()  {
 	r := gin.Default()
+	initDatabase()
 
 	contacts := []Contact{}
+	db := database.DBConn
 
 	r.Use(cors.New(cors.Config{
         AllowOrigins:     []string{DevClient},
@@ -34,16 +52,28 @@ func main()  {
         // MaxAge: 12 * time.Hour,
     }))
 
+	// healthcheck
 	r.GET("/ping", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{
 			"message": "Server is working",
 		})
 	})
 
+	// get all contacts
 	r.GET("/contacts", func(c *gin.Context) {
+		db.Find(&contacts)
 		c.JSON(http.StatusOK, contacts)
 	})
 
+	// get contact by id
+	r.GET("/contacts/:id", func(c *gin.Context) {
+		id := c.Params("id")
+		var contact Contact
+		db.Find(&contact, id)
+		c.JSON(http.StatusOK, contact)
+	})
+
+	// create a new contact
 	r.POST("/contacts", func(c *gin.Context) {
 		contact := &Contact{}
 		
@@ -53,10 +83,26 @@ func main()  {
 		}
 
 		contacts = append(contacts, *contact)
+		db.Create(&contact)
 		c.IndentedJSON(http.StatusOK, contact)
 	})
 
-	r.Use(gin.Logger())
+	// delete contact
+	r.DELETE("/contacts/:id", func(c *gin.Context) {
+		id := c.Param("id")
 
+		var contact Contact
+		db.First(&contact, id)
+		if contact.Name == "" {
+			r.JSON(http.StatusInternalServerError, gin.H{"error":"No contact found for id"})
+			return
+		}
+		db.Delete(&contact)
+		r.JSON(http.StatusOK, &contact)
+	})
+
+	r.Use(gin.Logger())
 	r.Run(":4000")
+
+	defer database.DBConn.Close()
 }
