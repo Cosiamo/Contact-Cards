@@ -13,7 +13,6 @@ import (
 
 type Contact struct {
 	gorm.Model
-	ID 		int 	`json:"id"`
 	Name 	string 	`json:"name"`
 	Email 	string 	`json:"email"`
 	Number 	string	`json:"number"`
@@ -24,12 +23,12 @@ const DevClient = "http://localhost:3000"
 
 func initDatabase() {
 	var err error
-	database.DBConn, err = gorm.Open("sqlite3", "contacts.db")
+	database.DBConn, err = gorm.Open("sqlite3", "database/contacts.db")
 	if err != nil {
 		panic("failed to connect database")
 	}
 	fmt.Println("Connection Opened to Database")
-	database.DBConn.AutoMigrate(&contact.Contact{})
+	database.DBConn.AutoMigrate(&Contact{})
 	fmt.Println("Database Migrated")
 }
 
@@ -54,7 +53,7 @@ func main()  {
 
 	// healthcheck
 	r.GET("/ping", func(c *gin.Context) {
-		c.JSON(http.StatusOK, gin.H{
+		c.IndentedJSON(http.StatusOK, gin.H{
 			"message": "Server is working",
 		})
 	})
@@ -62,22 +61,22 @@ func main()  {
 	// get all contacts
 	r.GET("/contacts", func(c *gin.Context) {
 		db.Find(&contacts)
-		c.JSON(http.StatusOK, contacts)
+		c.IndentedJSON(http.StatusOK, contacts)
 	})
 
 	// get contact by id
 	r.GET("/contacts/:id", func(c *gin.Context) {
-		id := c.Params("id")
+		id := c.Param("id")
 		var contact Contact
 		db.Find(&contact, id)
-		c.JSON(http.StatusOK, contact)
+		c.IndentedJSON(http.StatusOK, contact)
 	})
 
 	// create a new contact
 	r.POST("/contacts", func(c *gin.Context) {
 		contact := &Contact{}
 		
-		contact.ID = len(contacts) + 1
+		// contact.ID = len(contacts) + 1
 		if err := c.BindJSON(&contact); err != nil {
 			return
 		}
@@ -94,11 +93,11 @@ func main()  {
 		var contact Contact
 		db.First(&contact, id)
 		if contact.Name == "" {
-			r.JSON(http.StatusInternalServerError, gin.H{"error":"No contact found for id"})
+			c.IndentedJSON(http.StatusInternalServerError, gin.H{"error":"No contact found for id"})
 			return
 		}
 		db.Delete(&contact)
-		r.JSON(http.StatusOK, &contact)
+		c.IndentedJSON(http.StatusOK, &contact)
 	})
 
 	r.Use(gin.Logger())
